@@ -1,5 +1,6 @@
 import requests
 import traceback
+from time import sleep
 
 SPARQL_URL = 'https://query.wikidata.org/sparql'
 
@@ -9,9 +10,20 @@ NER_CATEGORY_MAP = [
     ['location', 'Q17334923'],
 ]
 
-def get_query_result(query):
-    response = requests.get(SPARQL_URL, params = {'format': 'json', 'query': query})#, timeout=10)
-    return response.json()
+def get_query_result(query, max_retries=5):
+    for i in range(max_retries):
+        try:
+            response = requests.get(SPARQL_URL, params = {'format': 'json', 'query': query},
+                                    headers = {'User-agent': 'IndicNLP Bot 0.1'}, timeout=20)
+            if response.status_code == 200:
+                return response.json()
+            print(response.text)
+            sleep(int(response.headers["Retry-After"])) # Yes, I am from a decent family
+        except:
+            # print(traceback.format_exc())
+            sleep(2)
+        
+    return {}
 
 NER_CATEGORY_QUERY = '''
 SELECT (COUNT(?item) AS ?count)
@@ -23,8 +35,9 @@ WHERE {{
 def get_ner_category(qid):
     for category, cat_qid in NER_CATEGORY_MAP:
         try:
+            sleep(0.5)
             result = get_query_result(NER_CATEGORY_QUERY % (qid, cat_qid))
-            if int(result['results']['bindings'][0]['count']['value']):
+            if 'results' in result and int(result['results']['bindings'][0]['count']['value']):
                 return category
         except:
             print(traceback.format_exc())
