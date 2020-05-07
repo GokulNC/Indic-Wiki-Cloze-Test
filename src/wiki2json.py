@@ -8,11 +8,12 @@ EXAMPLE:
 $ python wiki2json.py hi data/hiwiki-20200501-pages-articles-multistream.xml output/hi/
 '''
 
-import os, sys
+import os, sys, traceback
+from os.path import abspath
 from tqdm import tqdm
 
 from utils.wiki_dump_reader import Cleaner, iterate
-from utils.file_utils import pretty_write_json, get_valid_filename
+from utils.file_utils import pretty_write_json, get_verified_path
 
 class WikipediaXML2JSON():
     def __init__(self, wiki_xml, lang_code):
@@ -27,11 +28,16 @@ class WikipediaXML2JSON():
         page_titles = set()
         for title, text in tqdm(iterate(self.wiki_xml), desc='Wikipedia processing', unit=' articles'):
             # Clean each article to get plain-text and links
-            text = cleaner.clean_text(text)
-            cleaned_text, links = cleaner.build_links(text)
+            try:
+                text = cleaner.clean_text(text)
+                cleaned_text, links = cleaner.build_links(text)
+            except:
+                print(traceback.format_exc())
+                print('Failed to parse article:', title)
+                continue
             
-            # Store article as JSON
-            json_path = os.path.join(articles_path, get_valid_filename(title)+'.json')
+            # Store article as JSON. Note: 255 is max_path_length for Linux
+            json_path = get_verified_path(articles_path, title, '.json')
             if not os.path.isfile(json_path):
                 article = {
                     'title': title,
