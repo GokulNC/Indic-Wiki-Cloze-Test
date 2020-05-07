@@ -1,8 +1,11 @@
+import os
 import requests
 import traceback
+from tqdm import tqdm
 from wiki_dump_reader import Cleaner, iterate
 
 from utils.wikidata import get_ner_category
+from utils.file_utils import pretty_write_json, get_valid_filename
 
 class WikipediaXML2JSON_NER():
     def __init__(self, wiki_xml, lang_code):
@@ -12,14 +15,39 @@ class WikipediaXML2JSON_NER():
         self.wikipedia_pageprops = self.wikipedia_url + '/w/api.php?action=query&prop=pageprops&titles=%s&format=json'
         self.wiki_entities = {}
     
-    def process_wiki_xml(self):
+    def process_wiki_xml(self, save_to):
+        os.makedirs(save_to, exist_ok=True)
+        articles_path = os.path.join(save_to, 'articles')
+        os.makedirs(articles_path, exist_ok=True)
         cleaner = Cleaner()
-        for title, text in iterate(self.wiki_xml):
+        page_titles = set()
+        for title, text in tqdm(iterate(self.wiki_xml), desc='Wikipedia processing', unit=' articles'):
+            # Clean each article to get plain-text and links
             text = cleaner.clean_text(text)
-            # TODO: Store all entities? Then do what?
-            #cleaned_text, links = cleaner.build_links(text)
+            cleaned_text, links = cleaner.build_links(text)
             
-        return False
+            # Store article as JSON
+            json_path = os.path.join(articles_path, get_valid_filename(title)+'.json')
+            if not os.path.isfile(json_path):
+                article = {
+                    'title': title,
+                    'body': cleaned_text,
+                    'links': links,
+                    'lang_code': self.lang_code
+                }
+                
+                pretty_write_json(article, json_path)
+            
+            # Save all link names in this article
+            page_titles.add(title)
+            for l in links:
+                page_titles.add(l['link'])
+        
+        # Write all the page titles as txt to perform NER later
+        with open(os.path.join(save_to, 'page_titles.txt'), 'w', encoding='utf-8') as f:
+            f.write('\n'.join(page_titles)+'\n')
+        
+        return
         
     def perform_ner_wiki(self, page_title):
         page_title = page_title.replace(' ', '_')
@@ -52,6 +80,9 @@ class WikipediaXML2JSON_NER():
             return None
         
 if __name__ == '__main__':
-    p = WikipediaXML2JSON_NER('', 'en')
-    print(p.get_qid('Machine_learning'))
+    # p = WikipediaXML2JSON_NER('', 'en')
+    # print(p.get_qid('Machine_learning'))
+    
+    processor = WikipediaXML2JSON_NER('data/hiwiki-20200501-pages-articles-multistream.xml', 'hi')
+    processor.process_wiki_xml('output/hi/')
     
