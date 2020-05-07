@@ -10,7 +10,7 @@ NER_CATEGORY_MAP = [
 ]
 
 def get_query_result(query):
-    response = requests.get(SPARQL_URL, params = {'format': 'json', 'query': query}, timeout=5)
+    response = requests.get(SPARQL_URL, params = {'format': 'json', 'query': query})#, timeout=10)
     return response.json()
 
 NER_CATEGORY_QUERY = '''
@@ -31,4 +31,4 @@ def get_ner_category(qid):
     return None
     
 if __name__ == '__main__':
-    print(get_ner_category('Q15646407'))
+    print(get_ner_category('Q15646407')) # Kendriya Vidyala school
