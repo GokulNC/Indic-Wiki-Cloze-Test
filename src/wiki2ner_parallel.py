@@ -14,7 +14,7 @@ import traceback
 from threading import Thread
 from time import sleep
 
-from utils.wikidata import get_ner_category
+from src.wikidata_sparql import WikiDataQueryHandler
 from utils.file_utils import pretty_write_json
 
 class WikiNER_Downloader():
@@ -22,8 +22,9 @@ class WikiNER_Downloader():
         self.lang_code = lang_code
         self.wikipedia_url = 'https://' + lang_code + '.wikipedia.org'
         self.wikipedia_pageprops = self.wikipedia_url + '/w/api.php?action=query&titles=%s&redirects&prop=redirects&prop=pageprops&format=json'
+        self.query_handler = WikiDataQueryHandler()
     
-    def process_titles_parallel(self, txt_file, save_to, num_workers=8):
+    def process_titles_parallel(self, txt_file, save_to, num_workers=16):
         # Read list of all page titles
         with open(txt_file, encoding='utf-8') as f:
             titles = f.read().split('\n')
@@ -40,7 +41,6 @@ class WikiNER_Downloader():
                        args=(t_id, titles[t_id*titles_per_thread : (t_id+1)*titles_per_thread], results[t_id]))
             t.start()
             threads.append(t)
-            sleep(0.5) # Avoid hitting hard in the beginning
         
         # Start the status printing thread
         self.print_worker_status = True
@@ -89,7 +89,7 @@ class WikiNER_Downloader():
             return False
         
         # Find NER category for that entity from WikiData using QID
-        ner_category = get_ner_category(qid)
+        ner_category = self.query_handler.get_ner_category(qid)
         if not ner_category:
             return False
         wiki_entities[page_title]['NER_Category'] = ner_category
