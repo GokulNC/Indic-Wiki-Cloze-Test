@@ -16,13 +16,14 @@ class WikiDataQueryHandler:
             ['person', 'Q215627'],
             ['organization', 'Q43229'],
             ['location', 'Q17334923'],
+            ['event', 'Q1656682'],
         ]
         
         self.NER_CATEGORY_QUERY = '''
             SELECT (COUNT(?item) AS ?count)
             WHERE {{
                 BIND(wd:%s AS ?item).
-                ?item wdt:P31/wdt:P279* wd:%s .
+                ?item wdt:P31*/wdt:P279* wd:%s .
             }}'''
         
         self.HTTP_REQUEST_HEADER = {'User-agent': 'IndicNLP Bot 0.3'}
