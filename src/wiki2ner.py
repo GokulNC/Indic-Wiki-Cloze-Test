@@ -5,7 +5,7 @@ USAGE:
 $ <script.py> <lang_code> <txt_file> <output_folder>
 
 EXAMPLE:
-$ python wiki2ner_parallel.py hi output/hi/page_titles.txt output/hi/
+$ python wiki2ner.py hi output/hi/page_titles.txt output/hi/
 '''
 
 import os, sys
@@ -13,6 +13,7 @@ import requests
 import traceback
 from threading import Thread
 from time import sleep
+from tqdm import tqdm
 
 from src.wikidata_sparql import WikiDataQueryHandler
 from utils.file_utils import pretty_write_json
@@ -23,6 +24,20 @@ class WikiNER_Downloader():
         self.wikipedia_url = 'https://' + lang_code + '.wikipedia.org'
         self.wikipedia_pageprops = self.wikipedia_url + '/w/api.php?action=query&titles=%s&redirects&prop=redirects&prop=pageprops&format=json'
         self.query_handler = WikiDataQueryHandler()
+    
+    def process_titles_serial(self, txt_file, save_to):
+        # Read list of all page titles
+        with open(txt_file, encoding='utf-8') as f:
+            titles = f.read().split('\n')
+        
+        ner_data = {}
+        for title in tqdm(titles, desc='Performing NER from WikiData', unit=' entities'):
+            self.fetch_ner_wiki(title, ner_data)
+        
+        os.makedirs(save_to, exist_ok=True)
+        ner_file = os.path.join(save_to, 'ner_list.json')
+        pretty_write_json(ner_data, ner_file)
+        return
     
     def process_titles_parallel(self, txt_file, save_to, num_workers=16):
         # Read list of all page titles
@@ -113,4 +128,5 @@ class WikiNER_Downloader():
 if __name__ == '__main__':
     lang_code, txt_file, output_folder = sys.argv[1:]
     processor = WikiNER_Downloader(lang_code)
+    # processor.process_titles_serial(txt_file, output_folder)
     processor.process_titles_parallel(txt_file, output_folder)

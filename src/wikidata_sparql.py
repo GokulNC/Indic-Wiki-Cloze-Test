@@ -6,6 +6,7 @@ import threading
 
 class WikiDataQueryHandler:
     def __init__(self, rate_limit=5):
+        # Default: 5 concurrent queries. Src: stackoverflow.com/a/42590757
         self.rate_limit = rate_limit
         self.rate_limit_lock = threading.Semaphore(rate_limit)
         self.retry_after_lock = threading.Lock()
@@ -24,7 +25,7 @@ class WikiDataQueryHandler:
                 ?item wdt:P31/wdt:P279* wd:%s .
             }}'''
         
-        self.HTTP_REQUEST_HEADER = {'User-agent': 'IndicNLP Bot 0.2'}
+        self.HTTP_REQUEST_HEADER = {'User-agent': 'IndicNLP Bot 0.3'}
         self.MAX_RETRIES = 5
         
     def send_request_critical_section(self, query):
