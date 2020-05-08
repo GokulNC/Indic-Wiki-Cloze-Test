@@ -1,4 +1,4 @@
-## Wikipedia-based Cloze Test for Indian Languages
+## Wikipedia-based Cloze Task for Indian Languages
 
 ### Installing
 - `sudo apt install bzip2 wget python3 python3-pip byobu git`
@@ -10,7 +10,7 @@
   ```
 
 ### Getting Wikipedia Dumps
-Get the XML dump specific to your languge from [Wikipedia Dumps](dumps.wikimedia.org/)  
+Get the XML dump specific to your languge from [Wikipedia Dumps](dumps.wikimedia.org/).  
 For instance, to download the Hindi Wikipedia Dumps from 01-May-2020:
 ```bash
 wget 'https://dumps.wikimedia.org/hiwiki/20200501/hiwiki-20200501-pages-articles-multistream.xml.bz2'
@@ -46,13 +46,29 @@ For example:
 python3 src/wiki2ner.py hi output/hi/page_titles.txt output/hi/
 ```
 
-This will dump a file to the `output_folder` called `ner_list.json` which contains the list of all entitity name, WikiData QID and the NER category.
+This will dump a file to the `<output_folder>` called `ner_list.json` which contains the list of all entitity name, WikiData QID and the NER category.
 
 As of now, the supported categories are: (can also be found in [wikidata_sparql.py](src/wikidata_sparql.py))
-- Person
-- Organization
-- Location
-- Event
+- Person (`PER`)
+- Organization (`ORG`)
+- Location (`LOC`)
+- Event (`EVE`)
+
+Also, the WikiData SPARQL end-point is not so fast; on average, I was able to run for around 40 Wikipedia entities per minute (also includes entities without any NER categories matched).
 
 ### Creating the Cloze-Test Dataset
 <-- **Work In Progress** -->
+
+<hr/>
+
+## Misc
+
+### To-Do
+- Match with NER categoires from [`Cross-lingual Name Tagging and Linking corpus`](https://elisa-ie.github.io/wikiann/) before firing a request to WikiData.
+- Doubtful: Run a bulk SPARQL query to get all names from each NER category instead of firing for each entity & category. (Hurdle: Timeouts)
+
+### Future Ideas
+- [Question-Answering using Cloze-like technique from Wikipedia](https://medium.com/illuin/unsupervised-question-answering-4758e5f2be9b)
+
+### Credits & References
+- [Wiki Dump Reader](https://github.com/CyberZHG/wiki-dump-reader)
