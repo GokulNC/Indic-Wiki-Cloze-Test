@@ -5,9 +5,9 @@ import random
 import threading
 
 class WikiDataQueryHandler:
-    def __init__(self, rate_limit=0.2):
+    def __init__(self, rate_limit=5):
         self.rate_limit = rate_limit
-        self.rate_limit_lock = threading.Lock()
+        self.rate_limit_lock = threading.Semaphore(rate_limit)
         self.retry_after_lock = threading.Lock()
         self.SPARQL_URL = 'https://query.wikidata.org/sparql'
 
@@ -29,15 +29,18 @@ class WikiDataQueryHandler:
         
     def send_request_critical_section(self, query):
         
+        # Stall if waiting because of error 429
         if self.retry_after_lock.locked():
             self.retry_after_lock.acquire()
             self.retry_after_lock.release()
-        self.rate_limit_lock.acquire()
-        sleep(self.rate_limit)
-        self.rate_limit_lock.release()
+        
         try:
+            self.rate_limit_lock.acquire()
             response = requests.get(self.SPARQL_URL, params={'format': 'json', 'query': query},
                                     headers=self.HTTP_REQUEST_HEADER, timeout=20)
+            self.rate_limit_lock.release()
+            
+            # Handle too many requests error
             if response.status_code == 429 and not self.retry_after_lock.locked():
                 self.retry_after_lock.acquire()
                 retry_after = 30
@@ -47,6 +50,7 @@ class WikiDataQueryHandler:
                     retry_after = int(response.headers["Retry_After"])+1
                 sleep(retry_after)
                 self.retry_after_lock.release()
+            
             return response
         
         except requests.exceptions.Timeout:
