@@ -60,24 +60,26 @@ class WikiDataQueryHandler:
             response = requests.get(self.SPARQL_URL, params={'format': 'json', 'query': query},
                                     headers=self.HTTP_REQUEST_HEADER, timeout=20)
             self.rate_limit_lock.release()
-            
-            # Handle too many requests error
-            if response.status_code == 429 and not self.retry_after_lock.locked():
-                self.retry_after_lock.acquire()
-                retry_after = 30
-                if 'Retry-After' in response.headers:
-                    retry_after = int(response.headers["Retry-After"])+1
-                elif 'Retry_After' in response.headers:
-                    retry_after = int(response.headers["Retry_After"])+1
-                sleep(retry_after)
-                self.retry_after_lock.release()
-            
-            return response
-        
         except requests.exceptions.Timeout:
             sleep(2*random.random())
+            self.rate_limit_lock.release()
             raise
-        assert False, 'How did it reach here??'
+        except:
+            self.rate_limit_lock.release()
+            raise
+        
+        # Handle too many requests error
+        if response.status_code == 429 and not self.retry_after_lock.locked():
+            self.retry_after_lock.acquire()
+            retry_after = 30
+            if 'Retry-After' in response.headers:
+                retry_after = int(response.headers["Retry-After"])+1
+            elif 'Retry_After' in response.headers:
+                retry_after = int(response.headers["Retry_After"])+1
+            sleep(retry_after)
+            self.retry_after_lock.release()
+        
+        return response
 
     def get_query_result(self, query):
         # Run the given query on SPARQL
