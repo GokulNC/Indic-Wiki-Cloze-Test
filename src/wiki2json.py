@@ -49,7 +49,8 @@ class WikipediaXML2JSON():
                 pretty_write_json(article, json_path)
             
             # Save all link names in this article
-            page_titles.add(title)
+            if not cleaned_text.startswith('REDIRECT'):
+                page_titles.add(title)
             for l in links:
                 page_titles.add(l['link'])
         

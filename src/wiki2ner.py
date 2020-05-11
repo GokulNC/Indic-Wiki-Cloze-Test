@@ -9,6 +9,7 @@ $ python wiki2ner.py hi output/hi/page_titles.txt output/hi/
 '''
 
 import os, sys
+import json
 import requests
 import traceback
 from threading import Thread
@@ -24,6 +25,19 @@ class WikiNER_Downloader():
         self.wikipedia_url = 'https://' + lang_code + '.wikipedia.org'
         self.wikipedia_pageprops = self.wikipedia_url + '/w/api.php?action=query&titles=%s&redirects&prop=redirects&prop=pageprops&format=json'
         self.query_handler = WikiDataQueryHandler()
+        self.qid2category = {}
+    
+    def add_foreign_ner(self, ner_file):
+        # Save all the QID-to-category maps from any language's NER JSON file
+        # so that we might not have to fire duplicate requests.
+        with open(ner_file, encoding='utf-8') as f:
+            ner_data = json.load(f)
+        
+        for entity, data in tqdm(ner_data.items(), desc='Caching NER from file', unit=' entities'):
+            if 'QID' in data and data['QID']:
+                self.qid2category[data['QID']] = data['NER_Category'] if 'NER_Category' in data else None
+        
+        return
     
     def process_titles_serial(self, txt_file, save_to):
         # Read list of all page titles
@@ -103,8 +117,16 @@ class WikiNER_Downloader():
         if not qid:
             return False
         
+        # Check if already cached
+        if qid in self.qid2category:
+            if self.qid2category[qid]:
+                wiki_entities[page_title]['NER_Category'] = self.qid2category[qid]
+                return True
+            return False
+        
         # Find NER category for that entity from WikiData using QID
         ner_category = self.query_handler.get_ner_category(qid)
+        self.qid2category[qid] = ner_category # I think it's thread-safe
         if not ner_category:
             return False
         wiki_entities[page_title]['NER_Category'] = ner_category
@@ -126,7 +148,13 @@ class WikiNER_Downloader():
             return None
         
 if __name__ == '__main__':
-    lang_code, txt_file, output_folder = sys.argv[1:]
+    lang_code = sys.argv[1]
+    txt_file = sys.argv[2]
+    output_folder = sys.argv[3]
+    
     processor = WikiNER_Downloader(lang_code)
+    if len(sys.argv) > 4:
+        processor.add_foreign_ner(sys.argv[4])
+    
     # processor.process_titles_serial(txt_file, output_folder)
     processor.process_titles_parallel(txt_file, output_folder)
