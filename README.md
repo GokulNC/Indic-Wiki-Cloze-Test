@@ -57,7 +57,16 @@ As of now, the supported categories are: (can also be found in [wikidata_sparql.
 Also, the WikiData SPARQL end-point is not so fast; on average, I was able to run for around 40 Wikipedia entities per minute (also includes entities without any NER categories matched).
 
 ### Creating the Cloze-Test Dataset
-<-- **Work In Progress** -->
+
+To extract cloze data from the processed Wiki articles based on the NER entities:
+```bash
+python3 src/generate_cloze.py <lang_code> <ner_file> <articles_folder> <output_folder>
+```
+
+For example:
+```bash
+python3 src/generate_cloze.py hi output/hi/ner_list.json output/hi/articles/ output/hi/
+```
 
 <hr/>
 
