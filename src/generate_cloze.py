@@ -28,11 +28,11 @@ class ClozeGenerator():
             self.ner_data = json.load(f)
             
         # parameters
-        self.MIN_CONTEXT_WORDS = 40
+        self.MIN_CONTEXT_WORDS = 30
         self.MAX_CONTEXT_WORDS = 100
         self.MIN_OPTIONS_PER_CLOZE = 3
         self.MAX_NEGATIVE_OPTIONS_PER_CLOZE = 4
-        self.MAX_CLOZES_PER_ARTICLE = 4
+        self.MAX_CLOZES_PER_ARTICLE = 1
         self.MASK_TOKEN = '<MASK>'
         
     
@@ -82,12 +82,14 @@ class ClozeGenerator():
             # Get negative options randomly, add the right answer and shuffle
             negative_options = set(article['category2entities'][category])
             negative_options.remove(entity['text'])
-            negative_options = random.shuffle(list(negative_options))[:self.MAX_NEGATIVE_OPTIONS_PER_CLOZE]
+            negative_options = list(negative_options)
+            random.shuffle(negative_options)
+            negative_options = negative_options[:self.MAX_NEGATIVE_OPTIONS_PER_CLOZE]
             options = negative_options + [entity['text']]
             random.shuffle(options)
             cloze = {
                 'question': question,
-                'context': context,
+                # 'context': context,
                 'options': options,
                 'answer': entity['text'],
                 'category': category,
@@ -106,11 +108,11 @@ class ClozeGenerator():
             next_context_index += len(line) + 1
             
             # Skip if the context is not big enough
-            if len(line) < self.MIN_CONTEXT_WORDS:
+            if len(line.split()) < self.MIN_CONTEXT_WORDS:
                 continue
             
             # Remove few sentences from the end if context is too big
-            while len(line) > self.MAX_CONTEXT_WORDS:
+            while len(line.split()) > self.MAX_CONTEXT_WORDS:
                 full_stop_index = line.rfind(self.full_stop)
                 if full_stop_index == len(line) - 1:
                     full_stop_index = line[:full_stop_index].rfind(self.full_stop)
@@ -120,11 +122,12 @@ class ClozeGenerator():
                 else:
                     break
             
-            if len(line) <= self.MAX_CONTEXT_WORDS:
+            if len(line.split()) <= self.MAX_CONTEXT_WORDS:
                 cloze = self.get_cloze_from_context(line, context_begin_index, article)
                 if cloze:
                     cloze_list.append(cloze)
-                    break # For now, just generate only cloze per Wiki article
+                    if len(cloze_list) >= self.MAX_CLOZES_PER_ARTICLE:
+                        break
         
         return cloze_list
     
