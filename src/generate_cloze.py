@@ -10,6 +10,7 @@ $ python src/generate_cloze.py hi output/hi/ner_list.json output/hi/articles/ ou
 
 import os, sys
 import json
+import random
 from glob import glob
 from tqdm import tqdm
 
@@ -29,25 +30,74 @@ class ClozeGenerator():
         # parameters
         self.MIN_CONTEXT_WORDS = 40
         self.MAX_CONTEXT_WORDS = 100
+        self.MIN_OPTIONS_PER_CLOZE = 3
+        self.MAX_NEGATIVE_OPTIONS_PER_CLOZE = 4
+        self.MAX_CLOZES_PER_ARTICLE = 4
+        self.MASK_TOKEN = '<MASK>'
         
     
     def map_article_ner(self, article):
         # Map NER categories to the entities (links) in Wiki article
-        entities = []
+        entities, category2entities = [], {}
         for link in article['links']:
-            entity_name = link['link'] #.replace(' ', '_')
-            if len(entity_name.split()) != 1:
-                continue # Generate a blanks of only 1 word
-            if entity_name in self.ner_data and 'NER_Category' in self.ner_data[entity_name]:
-                link['category'] = entity_name
+            entity_name = link['text']
+            entity_fullname = link['link'].replace(' ', '_')
+            if len(entity_name.split()) != 1: # For now, generate blanks of only 1 word
+                continue 
+            # Retain only those entities which have a NER category
+            if entity_fullname in self.ner_data and 'NER_Category' in self.ner_data[entity_fullname]:
+                link['category'] = self.ner_data[entity_fullname]['NER_Category']
+                if link['category'] in category2entities:
+                    category2entities[link['category']].add(entity_name)
+                else:
+                    category2entities[link['category']] = set([entity_name])
                 del link['link']
-                entities.add(link)
+                entities.append(link)
         del article['links']
-        articles['entities'] = entities
+        article['entities'] = entities
+        article['category2entities'] = category2entities
         return
     
+    def get_cloze_from_context(self, context, index, article):
+        end_index = index + len(context)
+        category2entities = article['category2entities']
+        for entity in article['entities']: #Assumes sorted based on begin index
+            
+            # Check boundary cases
+            if entity['begin'] < index:
+                continue
+            if entity['begin'] + len(entity['text']) > end_index:
+                break
+            
+            # Ok, now see if we can make this entity as a blank
+            # How? Check if the article has some entities of same category for negative examples
+            category = entity['category']
+            if len(article['category2entities'][category]) < self.MIN_OPTIONS_PER_CLOZE:
+                continue
+            
+            # Prepare the cloze now!!
+            prefix = context[:entity['begin']-index]
+            suffix = context[entity['end']-index:]
+            question = prefix + self.MASK_TOKEN + suffix
+            # Get negative options randomly, add the right answer and shuffle
+            negative_options = set(article['category2entities'][category])
+            negative_options.remove(entity['text'])
+            negative_options = random.shuffle(list(negative_options))[:self.MAX_NEGATIVE_OPTIONS_PER_CLOZE]
+            options = negative_options + [entity['text']]
+            random.shuffle(options)
+            cloze = {
+                'question': question,
+                'context': context,
+                'options': options,
+                'answer': entity['text'],
+                'category': category,
+            }
+            return cloze
+            
+        return {}
+    
     def generate_for_article(self, article):
-        self.map_articles_ner(article)
+        self.map_article_ner(article)
             
         context_begin_index, next_context_index = 0, 0
         cloze_list = []
@@ -55,11 +105,15 @@ class ClozeGenerator():
             context_begin_index = next_context_index
             next_context_index += len(line) + 1
             
+            # Skip if the context is not big enough
             if len(line) < self.MIN_CONTEXT_WORDS:
                 continue
             
+            # Remove few sentences from the end if context is too big
             while len(line) > self.MAX_CONTEXT_WORDS:
                 full_stop_index = line.rfind(self.full_stop)
+                if full_stop_index == len(line) - 1:
+                    full_stop_index = line[:full_stop_index].rfind(self.full_stop)
                 if full_stop_index > 0:
                     # Sincerely hope that the full stop means end of sentence
                     line = line[:full_stop_index+1]
@@ -67,7 +121,7 @@ class ClozeGenerator():
                     break
             
             if len(line) <= self.MAX_CONTEXT_WORDS:
-                cloze = self.get_cloze_from_context(line, context_begin_index, article['entities'])
+                cloze = self.get_cloze_from_context(line, context_begin_index, article)
                 if cloze:
                     cloze_list.append(cloze)
                     break # For now, just generate only cloze per Wiki article
@@ -76,19 +130,24 @@ class ClozeGenerator():
     
     def generate(self, output_dir):
         save_to = os.path.join(output_dir, 'cloze_set')
-        os.makedirs(save_to)
+        os.makedirs(save_to, exist_ok=True)
+        total_data_count = 0
         for article_file in tqdm(self.articles_json, desc='Generating cloze', unit=' articles'):
             with open(article_file, encoding='utf-8') as f:
                 article = json.load(f)
             
-            cloze = self.generate_for_article(article)
-            if cloze: # Save the cloze for this article
+            cloze_list = self.generate_for_article(article)
+            if cloze_list: # Save the cloze for this article
                 save_filepath = get_verified_path(save_to, article['title'], '.json')
-                pretty_write_json(cloze, save_filepath)
+                pretty_write_json(cloze_list, save_filepath)
+                total_data_count += len(cloze_list)
         
+        print('SUCCESS: Generated a total of %d cloze questions!' % total_data_count)
+        print('For results, check the folder:', save_to)
         # TOOO: Save a consolidated file?
+        
         return
-    
+
 if __name__ == '__main__':
     lang_code, ner_file, articles_folder, output_folder = sys.argv[1:]
     g = ClozeGenerator(lang_code, articles_folder, ner_file)
