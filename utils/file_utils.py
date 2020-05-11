@@ -1,10 +1,16 @@
 import json
 import sys
 import os
+import traceback
 
 def pretty_write_json(data, outfile, sort_keys=False):
-    with open(outfile, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4, sort_keys=sort_keys)
+    try:
+        with open(outfile, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4, sort_keys=sort_keys)
+    except:
+        print(traceback.format_exc())
+        print('Failed to save JSON:', outfile)
+    return
 
 INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 def get_valid_filename(filename):
