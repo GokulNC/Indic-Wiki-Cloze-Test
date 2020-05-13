@@ -1,3 +1,13 @@
+'''
+Prepare a Wikipedia+WikiData based small NER dataset based on what we have.
+
+USAGE:
+$ <script.py> <lang_code> <ner_file> <wiki_articles_folder> <output_folder>
+
+EXAMPLE:
+$ python misc/consolidate_ner_dataset.py hi output/hi/ner_list.json output/hi/articles/ output/hi/
+'''
+
 import os, sys
 import json
 import requests
@@ -6,6 +16,7 @@ from glob import glob
 from tqdm import tqdm
 
 from utils.file_utils import pretty_write_json
+from utils.net_utils import multi_get_batch
 
 class Wiki_NER_Consolidator:
     def __init__(self, lang_code, ner_file, wiki_articles_dir):
@@ -49,6 +60,7 @@ class Wiki_NER_Consolidator:
                 entities = set([entity.replace('_', ' ')])
                 if 'aliases' in data:
                     entities.update(data['aliases'])
+                # TODO: Remove non-lang_code entities
                 if qid in self.qid2ner:
                     self.qid2ner[qid]['entities'].update(entities)
                     if self.qid2ner[qid]['tag'] != data['NER_Category']:
@@ -100,9 +112,36 @@ class Wiki_NER_Consolidator:
         print('Writing final dataset to:', dataset_file)
         pretty_write_json(self.qid2ner, dataset_file)
         return
+    
+    def consolidate_parallel(self, output_dir, num_workers=128):
+        # Run bulk requests
+        url2qid = {self.WIKIDATA_ALIASES_API % qid : qid for qid in self.qid2ner}
+        responses = multi_get_batch(list(url2qid.keys()), num_workers, timeout=10)
+        assert len(responses) == len(url2qid)
+        total_entities = 0
+        for url, response in responses:
+            qid = url2qid[url]
+            try:
+                aliases = response.json()['entities'][qid]['aliases'][self.lang_code]
+                if aliases:
+                    self.qid2ner[qid]['entities'].update(set(a['value'] for a in aliases))
+            except:
+                pass
+            # Convert set to list since set is not serializable
+            self.qid2ner[qid]['entities'] = list(self.qid2ner[qid]['entities'])
+            total_entities += len(self.qid2ner[qid]['entities'])
+        
+        print('We now have a NER dataset of %d QIDs and %d entities!' % (len(self.qid2ner), total_entities))
+        # TODO: Any better format to save?
+        os.makedirs(output_dir, exist_ok=True)
+        dataset_file = os.path.join(output_dir, 'ner_dataset.json')
+        print('Writing final dataset to:', dataset_file)
+        pretty_write_json(self.qid2ner, dataset_file)
+        return
 
 if __name__ == '__main__':
     lang_code, ner_file, articles_folder, output_folder = sys.argv[1:]
     consolidator = Wiki_NER_Consolidator(lang_code, ner_file, articles_folder)
     # print(consolidator.get_wikidata_aliases('Q1001')) # Test Gandhi's aliases
-    consolidator.consolidate(output_folder)
+    # consolidator.consolidate(output_folder)
+    consolidator.consolidate_parallel(output_folder)
