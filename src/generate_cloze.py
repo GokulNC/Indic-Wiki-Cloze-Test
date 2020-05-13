@@ -13,13 +13,14 @@ import json
 import random
 from glob import glob
 from tqdm import tqdm
+from datetime import datetime
 
 from utils.lang_utils import EOS_DELIMITERS
 from utils.file_utils import pretty_write_json, get_verified_path
 
 class ClozeGenerator():
     def __init__(self, lang_code, wiki_articles_dir, ner_file):
-        self.lang_code = lang_code
+        self.LANG_CODE = lang_code
         self.full_stop = EOS_DELIMITERS[lang_code]
         
         self.articles_dir = wiki_articles_dir
@@ -32,9 +33,20 @@ class ClozeGenerator():
         self.MAX_CONTEXT_WORDS = 100
         self.MIN_OPTIONS_PER_CLOZE = 3
         self.MAX_NEGATIVE_OPTIONS_PER_CLOZE = 4
-        self.MAX_CLOZES_PER_ARTICLE = 1
+        self.MAX_CLOZES_PER_ARTICLE = 5
         self.MASK_TOKEN = '<MASK>'
-        
+    
+    def get_params_dict(self):
+        # TODO: Make it neat
+        return {
+            'LANG_CODE': self.LANG_CODE,
+            'MIN_CONTEXT_WORDS': self.MIN_CONTEXT_WORDS,
+            'MAX_CONTEXT_WORDS': self.MAX_CONTEXT_WORDS,
+            'MIN_OPTIONS_PER_CLOZE': self.MIN_OPTIONS_PER_CLOZE,
+            'MAX_NEGATIVE_OPTIONS_PER_CLOZE': self.MAX_NEGATIVE_OPTIONS_PER_CLOZE,
+            'MAX_CLOZES_PER_ARTICLE': self.MAX_CLOZES_PER_ARTICLE,
+            'MASK_TOKEN': self.MASK_TOKEN,
+        }
     
     def map_article_ner(self, article):
         # Map NER categories to the entities (links) in Wiki article
@@ -93,6 +105,7 @@ class ClozeGenerator():
                 'options': options,
                 'answer': entity['text'],
                 'category': category,
+                'title': article['title'],
             }
             return cloze
             
@@ -131,7 +144,27 @@ class ClozeGenerator():
         
         return cloze_list
     
-    def generate(self, output_dir):
+    def consolidate(self, articles_dir, outfile):
+        article_files = sorted(glob(os.path.join(articles_dir, '*.json')))
+        data = [] #WARN: Can be RAM consuming.
+        for article_file in tqdm(article_files, desc='Consolidating', unit=' articles'):
+            with open(article_file, encoding='utf-8') as f:
+                cloze_list = json.load(f)
+            data += cloze_list
+        
+        dataset = {
+            'params': self.get_params_dict(),
+            'metadata': {
+                'TOTAL_CLOZES': len(data),
+                'PROCESSED_WIKI_ARTICLES': len(self.articles_json),
+                'GENERATED_TIMESTAMP': str(datetime.now())
+            },
+            'cloze_data': data
+        }
+        pretty_write_json(dataset, outfile)
+        return
+    
+    def generate(self, output_dir, consolidate=True):
         save_to = os.path.join(output_dir, 'cloze_set')
         os.makedirs(save_to, exist_ok=True)
         total_data_count = 0
@@ -146,9 +179,11 @@ class ClozeGenerator():
                 total_data_count += len(cloze_list)
         
         print('SUCCESS: Generated a total of %d cloze questions!' % total_data_count)
-        print('For results, check the folder:', save_to)
-        # TOOO: Save a consolidated file?
-        
+        print('For individual results, check the folder:', save_to)
+        if consolidate:
+            dataset_file = os.path.join(output_dir, 'cloze_dataset.json')
+            self.consolidate(save_to, dataset_file)
+            print('Final dataset written to:', dataset_file)
         return
 
 if __name__ == '__main__':
