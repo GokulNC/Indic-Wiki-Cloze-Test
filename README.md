@@ -1,5 +1,11 @@
 ## Wikipedia-based Cloze Task for Indian Languages
 
+Code to prepare dataset for NLP cloze-task for Indian languages.  
+Procedure:
+- Process Wikipedia dumps to extract entities
+- Find NER category for those entities using WikiData
+- Prepare cloze questions from the articles for the NER-matched entities
+
 ### Installing
 - `sudo apt install bzip2 wget python3 python3-pip byobu git`
 - `git clone <repo>` and `cd <repo>`
