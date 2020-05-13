@@ -32,7 +32,8 @@ For example:
 python3 src/wiki2json.py hi data/hiwiki-20200501-pages-articles-multistream.xml output/hi/
 ```
 
-This will dump the articles to a directory in the `<output_folder>` called `articles` and another file called `page_titles.txt` containing all possible Wikipedia entities.
+- This will dump the articles to a directory in the `<output_folder>` called `articles` and another file called `page_titles.txt` containing all possible Wikipedia entities.
+- Sometimes, it may seem like the processing has paused; that's mostly because of some poorly formatted Wiki page messing the flow. Just sit back and chill, it will be complete.
 
 ### Performing NER using WikiData
 To find the NER categories of all the Wikipedia page titles (from a `txt` file) using WikiData:
@@ -54,7 +55,7 @@ As of now, the supported categories are: (can also be found in [wikidata_sparql.
 - Location (`LOC`)
 - Event (`EVE`)
 
-Also, the WikiData SPARQL end-point is not so fast; on average, I was able to run for around 40 Wikipedia entities per minute (also includes entities without any NER categories matched).
+Also, the WikiData SPARQL end-point is not so fast; depending on the number of entities to query, the time can be significantly large.
 
 ### Creating the Cloze-Test Dataset
 
@@ -68,12 +69,17 @@ For example:
 python3 src/generate_cloze.py hi output/hi/ner_list.json output/hi/articles/ output/hi/
 ```
 
+- This will write the individual article-level questions to `<output_folder>/cloze_set`
+- And consolidated final dataset to `<output_folder>/cloze_dataset.json`
+- You can control the parameters in [generate_cloze.py](src/generate_cloze.py) to decide the optimal size of dataset you want.
+
 <hr/>
 
 ## Misc
 
 ### To-Do
 - Match with NER categoires from [`Cross-lingual Name Tagging and Linking corpus`](https://elisa-ie.github.io/wikiann/) before firing a request to WikiData.
+  (Quick Analysis: Not much of overlap, so might not be that beneficial)
 - Doubtful: Run a bulk SPARQL query to get all names from each NER category instead of firing for each entity & category. (Hurdle: Timeouts)
 
 ### Future Ideas

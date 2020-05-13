@@ -50,12 +50,11 @@ class WikiDataQueryHandler:
         
     def send_request_critical_section(self, query):
         
-        # Stall if waiting because of error 429
-        if self.retry_after_lock.locked():
-            self.retry_after_lock.acquire()
-            self.retry_after_lock.release()
-        
         try:
+            # Stall if waiting because of error 429
+            if self.retry_after_lock.locked():
+                self.retry_after_lock.acquire()
+                self.retry_after_lock.release()
             self.rate_limit_lock.acquire()
             response = requests.get(self.SPARQL_URL, params={'format': 'json', 'query': query},
                                     headers=self.HTTP_REQUEST_HEADER, timeout=20)

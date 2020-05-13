@@ -86,14 +86,14 @@ class WikiNER_Downloader():
         for t_id in range(num_workers):
             ner_data.update(results[t_id])
         
-        print('Workers completed the work. Saving...')
-        
         os.makedirs(save_to, exist_ok=True)
         ner_file = os.path.join(save_to, 'ner_list.json')
+        print('Workers completed the work. Saving to:', ner_file)
         pretty_write_json(ner_data, ner_file)
         return
     
     def worker_status_printer(self, num_workers):
+        # TODO: Save NER data once in a while?
         while self.print_worker_status:
             # print('\n\n%5s\t%s' % ('T_ID', 'COUNTER'))
             # for t_id in range(num_workers):

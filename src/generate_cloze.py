@@ -11,6 +11,7 @@ $ python src/generate_cloze.py hi output/hi/ner_list.json output/hi/articles/ ou
 import os, sys
 import json
 import random
+import traceback
 from glob import glob
 from tqdm import tqdm
 from datetime import datetime
@@ -23,7 +24,6 @@ class ClozeGenerator():
         self.LANG_CODE = lang_code
         self.full_stop = EOS_DELIMITERS[lang_code]
         
-        self.articles_dir = wiki_articles_dir
         self.articles_json = sorted(glob(os.path.join(wiki_articles_dir, '*.json')))
         with open(ner_file, encoding='utf-8') as f:
             self.ner_data = json.load(f)
@@ -169,8 +169,13 @@ class ClozeGenerator():
         os.makedirs(save_to, exist_ok=True)
         total_data_count = 0
         for article_file in tqdm(self.articles_json, desc='Generating cloze', unit=' articles'):
-            with open(article_file, encoding='utf-8') as f:
-                article = json.load(f)
+            try:
+                with open(article_file, encoding='utf-8') as f:
+                    article = json.load(f)
+            except:
+                print(traceback.format_exc())
+                print('Unable to parse:', article_file)
+                continue
             
             cloze_list = self.generate_for_article(article)
             if cloze_list: # Save the cloze for this article

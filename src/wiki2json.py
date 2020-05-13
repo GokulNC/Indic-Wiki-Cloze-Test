@@ -54,10 +54,14 @@ class WikipediaXML2JSON():
             for l in links:
                 page_titles.add(l['link'])
         
+        print('Written all articles to:', articles_path)
+        
         # Write all the page titles as txt to perform NER later
-        with open(os.path.join(save_to, 'page_titles.txt'), 'w', encoding='utf-8') as f:
+        entities_txt = os.path.join(save_to, 'page_titles.txt')
+        with open(entities_txt, 'w', encoding='utf-8') as f:
             f.write('\n'.join(page_titles)+'\n')
         
+        print('Written %d potential Wiki Entities to:' % len(page_titles), entities_txt)
         return
         
 if __name__ == '__main__':
