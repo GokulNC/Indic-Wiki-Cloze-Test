@@ -35,6 +35,10 @@ class ClozeGenerator():
         self.MAX_NEGATIVE_OPTIONS_PER_CLOZE = 4
         self.MAX_CLOZES_PER_ARTICLE = 5
         self.MASK_TOKEN = '<MASK>'
+        
+        self.TRAIN_SPLIT = 0.8
+        self.DEV_SPLIT   = 0.1
+        self.TEST_SPLIT  = 0.1
     
     def get_params_dict(self):
         # TODO: Make it neat
@@ -144,7 +148,8 @@ class ClozeGenerator():
         
         return cloze_list
     
-    def consolidate(self, articles_dir, outfile):
+    def consolidate(self, articles_dir, output_dir, train_split=True):
+        
         article_files = sorted(glob(os.path.join(articles_dir, '*.json')))
         data = [] #WARN: Can be RAM consuming.
         for article_file in tqdm(article_files, desc='Consolidating', unit=' articles'):
@@ -161,12 +166,31 @@ class ClozeGenerator():
             },
             'cloze_data': data
         }
-        pretty_write_json(dataset, outfile)
+        dataset_file = os.path.join(output_dir, 'cloze_dataset_full.json')
+        pretty_write_json(dataset, dataset_file)
+        print('Final dataset written to:', dataset_file)
+        
+        if train_split:
+            random.seed(666)
+            random.shuffle(data)
+            
+            train_split_len = int(self.TRAIN_SPLIT * len(data))
+            pretty_write_json(data[:train_split_len], os.path.join(output_dir, 'cloze_train_set.json'))
+            
+            dev_split_len = int(self.DEV_SPLIT * len(data))
+            pretty_write_json(data[train_split_len:train_split_len+dev_split_len], os.path.join(output_dir, 'cloze_dev_set.json'))
+            
+            test_split_len = len(data) - (train_split_len+dev_split_len)
+            pretty_write_json(data[train_split_len+dev_split_len:], os.path.join(output_dir, 'cloze_test_set.json'))
+            
+            print('Dataset split into Train-Dev-Test and saved at ', output_dir)
+            print('Split ratio %.2f:%.2f:%.2f and count %d:%d:%d' %
+                  (self.TRAIN_SPLIT, self.DEV_SPLIT, self.TEST_SPLIT, train_split_len, dev_split_len, test_split_len))
         return
     
-    def generate(self, output_dir, consolidate=True):
+    def generate(self, output_dir, consolidate=True, train_split=True):
         save_to = os.path.join(output_dir, 'cloze_set')
-        os.makedirs(save_to, exist_ok=True)
+        os.makedirs(save_to)#, exist_ok=True) # Delete the folder yourself if it exists
         total_data_count = 0
         for article_file in tqdm(self.articles_json, desc='Generating cloze', unit=' articles'):
             try:
@@ -186,9 +210,7 @@ class ClozeGenerator():
         print('SUCCESS: Generated a total of %d cloze questions!' % total_data_count)
         print('For individual results, check the folder:', save_to)
         if consolidate:
-            dataset_file = os.path.join(output_dir, 'cloze_dataset.json')
-            self.consolidate(save_to, dataset_file)
-            print('Final dataset written to:', dataset_file)
+            self.consolidate(save_to, output_dir, train_split)
         return
 
 if __name__ == '__main__':
