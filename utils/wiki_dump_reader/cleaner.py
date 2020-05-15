@@ -171,7 +171,10 @@ class Cleaner(object):
                     removed += text[begin:]
                 break
             if pattern_begin > begin:
-                removed += text[begin:pattern_begin]
+                if removed:
+                    removed += text[begin:pattern_begin]
+                else:
+                    removed = text[begin:pattern_begin].lstrip()
             pattern_end, depth = pattern_begin + 2, 2
             while pattern_end < len(text):
                 ch = text[pattern_end]
@@ -211,4 +214,4 @@ class Cleaner(object):
                             removed += parts[1]
                         break
             begin = pattern_end
-        return removed.strip(), links
+        return removed.rstrip(), links
