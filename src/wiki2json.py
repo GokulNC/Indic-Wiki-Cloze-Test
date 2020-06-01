@@ -38,21 +38,21 @@ class WikipediaXML2JSON():
             
             # Store article as JSON. Note: 255 is max_path_length for Linux
             json_path = get_verified_path(articles_path, title, '.json')
-            if not os.path.isfile(json_path):
-                article = {
-                    'title': title,
-                    'body': cleaned_text,
-                    'links': links,
-                    'lang_code': self.lang_code
-                }
-                
-                pretty_write_json(article, json_path)
+            article = {
+                'title': title,
+                'body': cleaned_text,
+                'links': links,
+                'lang_code': self.lang_code
+            }
+            pretty_write_json(article, json_path)
             
             # Save all link names in this article
             if not cleaned_text.startswith('REDIRECT'):
-                page_titles.add(title)
+                page_titles.add(title.strip())
             for l in links:
-                page_titles.add(l['link'])
+                entity = l['link'].strip()
+                if entity:
+                    page_titles.add(entity)
         
         print('Written all articles to:', articles_path)
         
